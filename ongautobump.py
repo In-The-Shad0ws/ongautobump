@@ -28,11 +28,6 @@ fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
 # NOTE: You will need to set up a file with your google cloud credentials
 # as noted in the documentation for the "gspread" module
 
-# Where to find the onglog. Sure, we could take these as config values or
-# arguments or something, but... why?
-ONG_BUMP_SPREADSHEET_ID = "19zRJ-EIBsJr37l8HViPpGjEJvotfzzkFIKeyxLz6WYg"
-ONG_BUMP_SPREADSHEET_URL = f"https://docs.google.com/spreadsheets/d/{ONG_BUMP_SPREADSHEET_ID}"
-
 # event queue - this is to keep from making too many API calls per minute
 rowqueue = [ ]
 
