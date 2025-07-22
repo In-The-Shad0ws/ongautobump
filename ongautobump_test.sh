@@ -3,10 +3,10 @@
 # Runs the Ong Auto Bump Logger to the test
 AUTOBUMPDIR=/home/ongbots/ongautobump
 cd $AUTOBUMPDIR
-if [ ! -f "$AUTOBUMPDIR/ongautobump/.venv/bin/activate" ]; then
+if [ ! -f "$AUTOBUMPDIR/.venv/bin/activate" ]; then
     pip3 install -r requirements.txt
 fi
-source $AUTOBUMPDIR/ongautobump/.venv/bin/activate
+source $AUTOBUMPDIR/.venv/bin/activate
 
 GSHEETID=`cat $AUTOBUMPDIR/gsheet_test.id`
 
