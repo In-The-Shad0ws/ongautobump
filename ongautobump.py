@@ -56,7 +56,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--gsheets-id",
         default=None,
-        help="file with discord credentials"
+        help="google sheet identifier"
+    )
+
+    parser.add_argument(
+        "--line",
+        type=int,
+        default=20000,
+        help="line to start searching for free space"
     )
 
 
@@ -227,6 +234,10 @@ def main() -> int:
     worksheet= gsheet.worksheet("Support")
 
     # sys.exit()
+
+    if args.line is not None:
+        row = args.line
+
 
     print("Ready for data...")
     # Ok take stdin and enter into bump log 
