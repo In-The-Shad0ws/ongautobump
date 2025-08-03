@@ -98,7 +98,7 @@ def receiveline(line):
     items = line.split("\t")
     if len(items) > 1 and validdate.match(items[0]):
         if not eventstring.match(items[1]):
-            print(f'Adding Entry: {line}')
+            print(f'Adding Entry: {line.rstrip()}')
             # Make sure its the right length
             if len(items)>7:
                 items[7] = ''
@@ -206,7 +206,8 @@ def findnextrow():
                 blankfound = True
                 print(f'Found last blank row {row}')
 
-        if row < endrow and not blankfound:    
+        if not blankfound:    
+            row = rowpos
             print(f'Found last row {row}')
             blankfound = True
         startrow = row - 5
