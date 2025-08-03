@@ -153,6 +153,7 @@ def findnextrow():
         rowpos = startrow
         try:
             data = worksheet.get(f'A{startrow}:G{endrow}', pad_values=True)
+            print(f'Data received: {len(data)}')
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -167,13 +168,12 @@ def findnextrow():
                 cell = re.sub(r'\s',' ',cell)
                 newrow.append(cell)
             count += 1
-        
+            rowpos += 1
             # Check to see if row is blank
             #print(f'{row} {newrow[0]}')
             if newrow[0] != "":
-                rowpos += 1
                 if rowpos > row:
-                    row += 1
+                    row = rowpos
                 # Worse we need to normalize the date string for leading zeros to match input data
                 dateraw = validdate.match(newrow[0])
                 if dateraw and len(rowqueue)>0:
