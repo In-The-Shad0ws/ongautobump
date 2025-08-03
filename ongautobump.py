@@ -167,10 +167,11 @@ def findnextrow():
                 cell = re.sub(r'\s',' ',cell)
                 newrow.append(cell)
             count += 1
-            rowpos += 1
+        
             # Check to see if row is blank
             #print(f'{row} {newrow[0]}')
             if newrow[0] != "":
+                rowpos += 1
                 if rowpos > row:
                     row += 1
                 # Worse we need to normalize the date string for leading zeros to match input data
@@ -198,7 +199,14 @@ def findnextrow():
                         else:
                             newrowqueue.append(rowqueue[r])
                     rowqueue = newrowqueue
-        if row < endrow:    
+            
+            # Blank row found
+            if newrow[0] == "" and newrow[2] == "" and newrow[3] == "" and not blankfound:
+                row = rowpos
+                blankfound = True
+                print(f'Found last blank row {row}')
+
+        if row < endrow and not blankfound:    
             print(f'Found last row {row}')
             blankfound = True
         startrow = row - 5
