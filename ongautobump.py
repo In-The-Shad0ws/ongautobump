@@ -33,7 +33,7 @@ rowqueue = [ ]
 
 # Starting row
 row = 17400
-rowsearchwidth = 100 # Size of the initial search
+rowsearchwidth = 50 # Size of the initial search
 
 # Track new rows
 newrowcount = 100
@@ -138,6 +138,10 @@ def findnextrow():
     global rowsearchwidth
 
     validdate = re.compile(r'^(\d+)-(\d+)-(\d+)\s(\d+):(\d+):(\d+)')
+
+    # Expand size of the search window based on input size
+    if len(rowqueue) > rowsearchwidth:
+        rowsearchwidth=len(rowqueue)*4
 
     count = rowsearchwidth + 1
     startrow = row - rowsearchwidth
