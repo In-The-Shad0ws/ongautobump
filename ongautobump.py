@@ -185,7 +185,7 @@ def findnextrow():
                     #print(f'Checking against {newrow}')
                     for r in range(0,len(rowqueue)):
                         #print(f' Datestring: {datestring} rowqueue: {rowqueue[r][0]}')
-                        if datestring == rowqueue[r][0] and (newrow[3] == "STREAM START" or (newrow[2] == rowqueue[r][2] and newrow[3] == rowqueue[r][3] and newrow[4] == rowqueue[r][4] and newrow[5] == rowqueue[r][5])):
+                        if datestring == rowqueue[r][0] and (newrow[3] == "STREAM START" or (newrow[2] == rowqueue[r][2] and newrow[3] == rowqueue[r][3] and newrow[4][:2] == rowqueue[r][4][:2] and newrow[5] == rowqueue[r][5])):
                             print(f'  Already in sheet: ${rowqueue[r]}')
                         else:
                             newrowqueue.append(rowqueue[r])
