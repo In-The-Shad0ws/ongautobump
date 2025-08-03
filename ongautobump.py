@@ -151,7 +151,15 @@ def findnextrow():
         print(f'Looking for last row between {startrow} and {endrow}')
         count = 0
         rowpos = startrow
-        data = worksheet.get(f'A{startrow}:G{endrow}', pad_values=True)
+        try:
+            data = worksheet.get(f'A{startrow}:G{endrow}', pad_values=True)
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno)
+            print(traceback.format_exc())
+            sys.exit(f"Google Sheet Exception {e}")
+
         for datarow in data:
             newrow = []
             # Some reason spaces get turned into \xa0.
@@ -257,6 +265,7 @@ def main() -> int:
 
     print("Ready for data...")
     # Ok take stdin and enter into bump log 
+    failure_count=0
     while True:
         try:
             if select.select([sys.stdin],[],[],1.0)[0]:
@@ -275,6 +284,7 @@ def main() -> int:
                             worksheet.update(rowqueue,f'A{row}:H{row+len(rowqueue)-1}', raw=False)
                             row += len(rowqueue)
                             state_path.write_text(str(row))
+                            failure_count=0
 
                         rowqueue = []
                     except Exception as e:
@@ -284,6 +294,10 @@ def main() -> int:
                         print(traceback.format_exc())
                         print("--= Some failure occured trying to add information. Pausing 30 seconds =--")
                         time.sleep(30)
+                        failure_count = failure_count + 1
+                        if failure_count > 4:
+                            print("API Seems to not be working anymore -- exiting")
+                            break
 
         except StopIteration:
             print('EOF! Terminating')
