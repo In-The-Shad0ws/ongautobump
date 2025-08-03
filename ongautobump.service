@@ -1,0 +1,17 @@
+[Unit]
+Description=Ong Bump Log Bot
+After=network-online.target
+
+[Service]
+Type=simple
+
+User=ongbots
+Group=ongmod
+
+ExecStart=/home/ongbots/ongautobump_prod.sh
+
+Restart=always
+RestartSec=60s
+
+[Install]
+WantedBy=multi-user.target

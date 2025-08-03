@@ -33,6 +33,7 @@ rowqueue = [ ]
 
 # Starting row
 row = 17400
+rowsearchwidth = 100 # Size of the initial search
 
 # Track new rows
 newrowcount = 100
@@ -62,10 +63,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--line",
         type=int,
-        default=20000,
+        default=None,
         help="line to start searching for free space"
     )
 
+    parser.add_argument(
+        "--statefile",
+        type=str,
+        default="default.state",
+        help="State file used to remember last location in sheet"
+    )
 
     parsed_args = parser.parse_args()
 
@@ -128,14 +135,15 @@ def findnextrow():
     global rowqueue
     global newrowcount
     global newrowused
+    global rowsearchwidth
 
     validdate = re.compile(r'^(\d+)-(\d+)-(\d+)\s(\d+):(\d+):(\d+)')
 
-    count = 101
-    startrow = row - 100
+    count = rowsearchwidth + 1
+    startrow = row - rowsearchwidth
     blankfound = False
     while not blankfound:
-        endrow = row + 100
+        endrow = row + rowsearchwidth
         print(f'Looking for last row between {startrow} and {endrow}')
         count = 0
         rowpos = startrow
@@ -182,6 +190,7 @@ def findnextrow():
             print(f'Found last row {row}')
             blankfound = True
         startrow = row - 5
+        rowsearchwidth = 10 # Reduce future search width
 
     # Find the last row not likely to have anything in the comment field
     if len(rowqueue)>0:
@@ -234,10 +243,13 @@ def main() -> int:
     worksheet= gsheet.worksheet("Support")
 
     # sys.exit()
+    state_path = Path(__file__).resolve().parent / args.statefile
 
     if args.line is not None:
         row = args.line
+        state_path.write_text(str(row))
 
+    row = int(state_path.read_text())
 
     print("Ready for data...")
     # Ok take stdin and enter into bump log 
@@ -255,8 +267,11 @@ def main() -> int:
                     try:
                         findnextrow()
                         if len(rowqueue)>0:
+                            print("Updating google sheet...")
                             worksheet.update(rowqueue,f'A{row}:H{row+len(rowqueue)-1}', raw=False)
                             row += len(rowqueue)
+                            state_path.write_text(str(row))
+
                         rowqueue = []
                     except Exception as e:
                         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -267,7 +282,7 @@ def main() -> int:
                         time.sleep(30)
 
         except StopIteration:
-            print('EOF!')
+            print('EOF! Terminating')
             break
 
 
