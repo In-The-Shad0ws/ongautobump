@@ -8,10 +8,14 @@ Type=simple
 User=ongbots
 Group=ongmod
 
-ExecStart=/home/ongbots/ongautobump_prod.sh
+ExecStartPre=/bin/bash -c 'mv /home/ongbots/ongautobump/ongautobump.log /home/ongbots/ongautobump/ongautobump.$$(date +%%T)-logs.log'
+ExecStart=/home/ongbots/ongautobump/ongautobump_prod.sh
 
 Restart=always
 RestartSec=60s
+
+StandardOutput=file:/home/ongbots/ongautobump/ongautobump.log
+StandardError=inherit
 
 [Install]
 WantedBy=multi-user.target
