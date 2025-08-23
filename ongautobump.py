@@ -41,6 +41,7 @@ rowsearchwidth = 50 # Size of the initial search
 newrowcount = 100
 newrowused = 100
 lastrow = 0
+ordercount = 0
 
 # Arguement Parsing
 def parse_args() -> argparse.Namespace:
@@ -192,6 +193,9 @@ def findnextrow():
 
                     # Use the date string and C/D column to eliminate duplicates
                     newrowqueue = []
+                    if newrow[1] != "":
+                        ordercount = int(newrow[1])
+
                     #print(f'Checking against {newrow}')
                     for r in range(0,len(rowqueue)):
                         #print(f' Datestring: {datestring} rowqueue: {rowqueue[r][0]}')
@@ -220,6 +224,10 @@ def findnextrow():
     # Find the last row not likely to have anything in the comment field
     if len(rowqueue)>0:
         for r in range(0,len(rowqueue)):
+            # Generate the order column, if STREAM START, then ordercount is an offset from r+1
+            if rowqueue[r][3] == "STREAM START" or rowqueue[r][3] == "STREAM END":
+                ordercount=(-r-1)
+            rowqueue[r][1]= r+ordercount+1
             if rowqueue[r][5]:
                 dollarvalue = float(re.sub(r'\$','',rowqueue[r][5]))
                 if dollarvalue < 24.99:
