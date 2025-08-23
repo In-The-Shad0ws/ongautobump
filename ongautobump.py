@@ -98,7 +98,7 @@ def receiveline(line):
     items = line.split("\t")
     if len(items) > 1 and validdate.match(items[0]):
         if not eventstring.match(items[1]):
-            print(f'Adding Entry: {line.rstrip()}')
+            print(f'Adding Entry: {line.rstrip()}', flush=True)
             # Make sure its the right length
             if len(items)>7:
                 items[7] = ''
@@ -108,7 +108,7 @@ def receiveline(line):
             rowqueue.append(items[0:8])
     elif lastrow>0 and hypeend.search(line):
         hypelevel = hypelevel.search(line)
-        print(f'Hype: {hypelevel.group(1)}')
+        print(f'Hype: {hypelevel.group(1)}', flush=True)
         if hypelevel.group(1):
             level = int(hypelevel.group(1)) -1
             # print(f'Rowqueue {len(rowqueue)-1} Items {len(rowqueue[len(rowqueue)-1])}')
@@ -116,14 +116,14 @@ def receiveline(line):
             try:
                 worksheet.update([[ f'Hypetrain Completed Level {level}']],f'H{lastrow}')
             except:
-                print(f'Failed to update H{lastrow} for Hypetrain')
+                print(f'Failed to update H{lastrow} for Hypetrain', flush=True)
     elif streamstart.search(line):
         items = line.split(" === ")
-        print(f'Stream Start: {items[0]}')
+        print(f'Stream Start: {items[0]}', flush=True)
         rowqueue.append([items[0],"","","STREAM START","","","",""])
     elif streamend.search(line):
         items = line.split(" === ")
-        print(f'Stream End: {items[0]}')
+        print(f'Stream End: {items[0]}', flush=True)
         rowqueue.append([items[0],"","","STREAM END","","","",""])
     else:
         print(f'Did not understand: {line}')
@@ -153,7 +153,7 @@ def findnextrow():
         rowpos = startrow
         try:
             data = worksheet.get(f'A{startrow}:G{endrow}', pad_values=True)
-            print(f'Data received: {len(data)}')
+            print(f'Data received: {len(data)}', flush=True)
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -204,11 +204,11 @@ def findnextrow():
             if newrow[0] == "" and newrow[2] == "" and newrow[3] == "" and not blankfound:
                 row = rowpos
                 blankfound = True
-                print(f'Found last blank row {row}')
+                print(f'Found last blank row {row}', flush=True)
 
         if not blankfound:    
             row = rowpos
-            print(f'Found last row {row}')
+            print(f'Found last row {row}', flush=True)
             blankfound = True
         startrow = row - 5
         rowsearchwidth = 10 # Reduce future search width
@@ -285,7 +285,7 @@ def main() -> int:
                     line = sys.stdin.readline()   
             else:
                 if len(rowqueue)>0:
-                    print("Processing queue...")
+                    print("Processing queue...", flush=True)
                     try:
                         findnextrow()
                         if len(rowqueue)>0:
@@ -301,7 +301,7 @@ def main() -> int:
                         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                         print(exc_type, fname, exc_tb.tb_lineno)
                         print(traceback.format_exc())
-                        print("--= Some failure occured trying to add information. Pausing 30 seconds =--")
+                        print("--= Some failure occured trying to add information. Pausing 30 seconds =--", flush=True)
                         time.sleep(30)
                         failure_count = failure_count + 1
                         if failure_count > 4:
