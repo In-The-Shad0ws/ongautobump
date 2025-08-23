@@ -9,6 +9,7 @@ import gspread
 import select
 import time
 import traceback
+import fcntl
 from datetime import datetime, timedelta
 from enum import IntEnum
 from pathlib import Path
@@ -30,6 +31,7 @@ fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
 
 # event queue - this is to keep from making too many API calls per minute
 rowqueue = [ ]
+hypequeue = [ ]
 
 # Starting row
 row = 17400
@@ -85,6 +87,7 @@ def parse_args() -> argparse.Namespace:
 def receiveline(line):
     global row
     global rowqueue
+    global hypequeue
 
     # Valid date pattern
     validdate = re.compile("^20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]")
@@ -98,7 +101,7 @@ def receiveline(line):
     items = line.split("\t")
     if len(items) > 1 and validdate.match(items[0]):
         if not eventstring.match(items[1]):
-            print(f'Adding Entry: {line.rstrip()}')
+            print(f'Adding Entry: {line.rstrip()}', flush=True)
             # Make sure its the right length
             if len(items)>7:
                 items[7] = ''
@@ -106,24 +109,21 @@ def receiveline(line):
                 while len(items)<8:
                     items.append('')
             rowqueue.append(items[0:8])
-    elif lastrow>0 and hypeend.search(line):
+    elif hypeend.search(line):
         hypelevel = hypelevel.search(line)
-        print(f'Hype: {hypelevel.group(1)}')
+        print(f'Hype: {hypelevel.group(1)}', flush=True)
         if hypelevel.group(1):
             level = int(hypelevel.group(1)) -1
             # print(f'Rowqueue {len(rowqueue)-1} Items {len(rowqueue[len(rowqueue)-1])}')
             # rowqueue[lastrow][7]= f'Hypetrain Completed Level {level}'
-            try:
-                worksheet.update([[ f'Hypetrain Completed Level {level}']],f'H{lastrow}')
-            except:
-                print(f'Failed to update H{lastrow} for Hypetrain')
+            hypequeue.append([[[ f'Hypetrain Completed Level {level}']],row+len(rowqueue)-1])
     elif streamstart.search(line):
         items = line.split(" === ")
-        print(f'Stream Start: {items[0]}')
+        print(f'Stream Start: {items[0]}', flush=True)
         rowqueue.append([items[0],"","","STREAM START","","","",""])
     elif streamend.search(line):
         items = line.split(" === ")
-        print(f'Stream End: {items[0]}')
+        print(f'Stream End: {items[0]}', flush=True)
         rowqueue.append([items[0],"","","STREAM END","","","",""])
     else:
         print(f'Did not understand: {line}')
@@ -133,6 +133,7 @@ def findnextrow():
     global row
     global lastrow
     global rowqueue
+    global hypequeue
     global newrowcount
     global newrowused
     global rowsearchwidth
@@ -153,7 +154,7 @@ def findnextrow():
         rowpos = startrow
         try:
             data = worksheet.get(f'A{startrow}:G{endrow}', pad_values=True)
-            print(f'Data received: {len(data)}')
+            print(f'Data received: {len(data)}', flush=True)
         except Exception as e:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -196,6 +197,9 @@ def findnextrow():
                         #print(f' Datestring: {datestring} rowqueue: {rowqueue[r][0]}')
                         if datestring == rowqueue[r][0] and (newrow[3] == "STREAM START" or (newrow[2] == rowqueue[r][2] and newrow[3] == rowqueue[r][3] and newrow[4][:2] == rowqueue[r][4][:2] and newrow[5] == rowqueue[r][5])):
                             print(f'  Already in sheet: ${rowqueue[r]}')
+                            # Decrease and hype count row by one
+                            for i in range(len(hypequeue)):
+                                hypequeue[i][1]-=1
                         else:
                             newrowqueue.append(rowqueue[r])
                     rowqueue = newrowqueue
@@ -204,11 +208,11 @@ def findnextrow():
             if newrow[0] == "" and newrow[2] == "" and newrow[3] == "" and not blankfound:
                 row = rowpos
                 blankfound = True
-                print(f'Found last blank row {row}')
+                print(f'Found last blank row {row}', flush=True)
 
         if not blankfound:    
             row = rowpos
-            print(f'Found last row {row}')
+            print(f'Found last row {row}', flush=True)
             blankfound = True
         startrow = row - 5
         rowsearchwidth = 10 # Reduce future search width
@@ -223,17 +227,18 @@ def findnextrow():
 
     print(f'Next blank row: {row} New rows to add: {len(rowqueue)}')
 
+    # Disable this part and use append rows instead
     # Next Make sure there are enough new rows, if not, create more new lines
-    newrowused += len(rowqueue)
-    if newrowused > newrowcount:
-        newrowused-=newrowcount
-        try:
-            worksheet.add_rows(newrowcount+newrowused)
-            print(f'Added {newrowused+newrowcount} lines to sheet')
-            newrowused=0
-        except:
-            print("Tried to add lines to the sheet and that failed - new lines might not appear")
-            newrowused+=newrowcount  # Restore true status
+    # newrowused += len(rowqueue)
+    # if newrowused > newrowcount:
+    #    newrowused-=newrowcount
+    #    try:
+    #        worksheet.add_rows(newrowcount+newrowused)
+    #        print(f'Added {newrowused+newrowcount} lines to sheet')
+    #        newrowused=0
+    #    except:
+    #        print("Tried to add lines to the sheet and that failed - new lines might not appear")
+    #        newrowused+=newrowcount  # Restore true status
 
     print(f'To Add:')
     for r in range(0,len(rowqueue)):
@@ -243,6 +248,7 @@ def findnextrow():
 def main() -> int:
     global row
     global rowqueue
+    global hypequeue
     global worksheet
     global lastrow
 
@@ -272,7 +278,12 @@ def main() -> int:
 
     row = int(state_path.read_text())
 
-    print("Ready for data...")
+    # Set input to non-blocking
+    rig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
+    fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
+
+
+    print("Ready for data...", flush=True)
     # Ok take stdin and enter into bump log 
     failure_count=0
     while True:
@@ -283,35 +294,58 @@ def main() -> int:
                     # print(f'Line: {line}')
                     receiveline(line)
                     line = sys.stdin.readline()   
-            else:
-                if len(rowqueue)>0:
-                    print("Processing queue...")
-                    try:
-                        findnextrow()
-                        if len(rowqueue)>0:
-                            print("Updating google sheet...")
-                            worksheet.update(rowqueue,f'A{row}:H{row+len(rowqueue)-1}', raw=False)
-                            row += len(rowqueue)
-                            state_path.write_text(str(row))
-                            failure_count=0
+            if len(rowqueue)>0:
+                print("Processing queue...", flush=True)
+                try:
+                    findnextrow()
+                    if len(rowqueue)>0:
+                        print("Updating google sheet...")
+# update(values: Iterable[Iterable[Any]], 
+#        range_name: str | None = None, 
+#        raw: bool = True, 
+#        major_dimension: Dimension | None = None, 
+#        value_input_option: ValueInputOption | None = None, 
+#        include_values_in_response: bool | None = None, 
+#        response_value_render_option: ValueRenderOption | None = None, 
+#        response_date_time_render_option: DateTimeOption | None = None)→ MutableMapping[str, Any]
+                        # worksheet.update(rowqueue,f'A{row}:H{row+len(rowqueue)-1}', raw=False)
 
-                        rowqueue = []
-                    except Exception as e:
-                        exc_type, exc_obj, exc_tb = sys.exc_info()
-                        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                        print(exc_type, fname, exc_tb.tb_lineno)
-                        print(traceback.format_exc())
-                        print("--= Some failure occured trying to add information. Pausing 30 seconds =--")
-                        time.sleep(30)
-                        failure_count = failure_count + 1
-                        if failure_count > 4:
-                            print("API Seems to not be working anymore -- exiting")
-                            break
+# append_rows(values: Sequence[Sequence[str | int | float]], 
+#             value_input_option: ValueInputOption = ValueInputOption.raw, 
+#             insert_data_option: InsertDataOption | None = None, 
+#             table_range: str | None = None, 
+#             include_values_in_response: bool | None = None)→ MutableMapping[str, Any]
+                        worksheet.append_rows(rowqueue, table_range=f'A{row}',value_input_option='USER_ENTERED', insert_data_option='INSERT_ROWS')
+                        print("Successfully updated", flush=True)
+                        row += len(rowqueue)
+                        state_path.write_text(str(row))
+                        failure_count=0
+
+                    rowqueue = []
+                except Exception as e:
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                    print(exc_type, fname, exc_tb.tb_lineno)
+                    print(traceback.format_exc())
+                    print("--= Some failure occured trying to add information. Pausing 30 seconds =--", flush=True)
+                    time.sleep(30)
+                    failure_count = failure_count + 1
+                    if failure_count > 4:
+                        print("API Seems to not be working anymore -- exiting")
+                        break
+            if len(hypequeue)>0:
+                for hype in hypequeue:                        
+                    try:
+                        worksheet.update(hype[0],f'H{hype[1]}')
+                        print(f'Updated H{hype[1]} for Hypetrain {hype[0]}', flush=True)
+                    except:
+                        print(f'Failed to update H{hype[1]} for Hypetrain {hype[0]}', flush=True)
+                hypequeue = []
 
         except StopIteration:
             print('EOF! Terminating')
             break
-
+    print('EOF! Terminating')
 
 if __name__ == "__main__":
     main()
