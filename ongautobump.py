@@ -199,7 +199,7 @@ def findnextrow():
                     #print(f'Checking against {newrow}')
                     for r in range(0,len(rowqueue)):
                         #print(f' Datestring: {datestring} rowqueue: {rowqueue[r][0]}')
-                        if datestring == rowqueue[r][0] and (newrow[3] == "STREAM START" or (newrow[2] == rowqueue[r][2] and newrow[3] == rowqueue[r][3] and newrow[4][:2] == rowqueue[r][4][:2] and newrow[5] == rowqueue[r][5])):
+                        if datestring == rowqueue[r][0] and (newrow[3] == "STREAM START" or (newrow[2] == rowqueue[r][2] and newrow[3] == rowqueue[r][3] and newrow[4][:3] == rowqueue[r][4][:3] and newrow[5] == rowqueue[r][5])):
                             print(f'  Already in sheet: ${rowqueue[r]}')
                             # Decrease and hype count row by one
                             for i in range(len(hypequeue)):
@@ -336,8 +336,14 @@ def main() -> int:
                     print(exc_type, fname, exc_tb.tb_lineno)
                     print(traceback.format_exc())
                     print("--= Some failure occured trying to add information. Pausing 30 seconds =--", flush=True)
-                    time.sleep(30)
+
                     failure_count = failure_count + 1
+                    time.sleep(30*failure_count)
+
+                    # See if reopening the sheet helps
+                    gsheet = gc.open_by_key(ONG_BUMP_SPREADSHEET_ID)
+                    worksheet= gsheet.worksheet("Support")
+
                     if failure_count > 4:
                         print("API Seems to not be working anymore -- exiting")
                         break
