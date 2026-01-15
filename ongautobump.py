@@ -34,7 +34,7 @@ rowqueue = [ ]
 hypequeue = [ ]
 
 # Starting row
-row = 17400
+row = 2
 rowsearchwidth = 50 # Size of the initial search
 
 # Track new rows
@@ -147,6 +147,8 @@ def findnextrow():
 
     count = rowsearchwidth + 1
     startrow = row - rowsearchwidth
+    if startrow < 2:
+        startrow = 2
     blankfound = False
     while not blankfound:
         endrow = row + rowsearchwidth
@@ -219,6 +221,8 @@ def findnextrow():
             print(f'Found last row {row}', flush=True)
             blankfound = True
         startrow = row - 5
+        if startrow < 2:
+            startrow = 2
         rowsearchwidth = 10 # Reduce future search width
 
     # Find the last row not likely to have anything in the comment field
