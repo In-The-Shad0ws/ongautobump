@@ -116,8 +116,12 @@ def receiveline(line):
         if hypelevel.group(1):
             level = int(hypelevel.group(1)) -1
             # print(f'Rowqueue {len(rowqueue)-1} Items {len(rowqueue[len(rowqueue)-1])}')
-            # rowqueue[lastrow][7]= f'Hypetrain Completed Level {level}'
-            hypequeue.append([[[ f'Hypetrain Completed Level {level}']],row+len(rowqueue)-1])
+            # rowqueue[lastrow][7]= f'Completed Level {level}'
+            # New way to record Hype Trains Directly
+            rowqueue.append([items[0],items[1],"","Hype Train End","Hype","$0.00","na", f'Completed Level {level}'])
+
+            # Old way.  If nothing adds to the queue, it will not do anything.  Later to remove this code.
+            # hypequeue.append([[[ f'Hypetrain Completed Level {level}']],row+len(rowqueue)-1])
     elif streamstart.search(line):
         items = line.split(" === ")
         print(f'Stream Start: {items[0]}', flush=True)
