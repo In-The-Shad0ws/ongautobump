@@ -9,7 +9,6 @@ import gspread
 import select
 import time
 import traceback
-import fcntl
 from datetime import datetime, timedelta
 from enum import IntEnum
 from pathlib import Path
@@ -17,14 +16,6 @@ from typing import Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 from tdvutil.argparse import CheckFile
-
-import fcntl
-
-# set sys.stdin non-blocking
-orig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
-fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
-
-# import dateparser
 
 # NOTE: You will need to set up a file with your google cloud credentials
 # as noted in the documentation for the "gspread" module
@@ -85,6 +76,78 @@ def parse_args() -> argparse.Namespace:
 
     return parsed_args
 
+
+# Recieved Line Examples
+##
+# Input is tab seperated
+#
+#   Stream start and end messages
+# ---------------------------------------
+# 2026-06-11 22:35:37 === ONLINE (type=live @ 2026-06-12T02:35:24Z ===
+# 2026-06-12 08:48:44 === OFFLINE ===
+#
+#  Bits
+# ---------------------------------------
+# 2026-06-12 08:19:23			Michael_249	Bits	$0.88	na	
+# 2026-06-12 08:19:29			Michael_249	Bits	$0.90	na	
+# 2026-06-12 08:19:39			LRowyn	Bits	$0.85	na	
+#
+#  Tips
+# ---------------------------------------
+# 2026-06-08 23:55:56			COREYTOWNZ	Tip	$55.55	na	
+# 2026-06-08 23:56:54			Kirby_Bitera	Tip	$35.00	na	
+# 2026-06-09 00:05:12			rainchilddotcom	Tip	$35.22	na	
+# 2026-06-09 00:30:42			andviceversa_	Tip	$30.00	na	
+# 2026-06-09 00:56:45			Rosennetyle	Tip	$10.00	na	
+# 2026-06-09 02:05:44			alinsa_vix	Tip	$60.00	na	
+# 2026-06-09 02:40:43			O_xD	Tip	$30.00	na	
+# 2026-06-09 02:50:01			Valxa__	Tip	$69.69	na	
+# 2026-06-09 02:50:54			COREYTOWNZ	Tip	$69.68	na	
+
+#
+# Subs
+# ---------------------------------------
+# 2026-06-12 02:58:00			Ninjafish255	Sub #105	$5.00	na	
+# 2026-06-12 03:28:36			Insomniac_rap	Sub #101	$10.00	na	
+# 2026-06-12 05:38:55			MannyHub	Sub #80	$25.00	na	
+# 2026-06-12 05:57:58			5Iappy	Sub #84	$5.00	na	
+# 2026-06-12 07:38:20			bombasticdaddynut	Sub #8	$5.00	na	
+# 2026-06-12 08:33:58			RobAncalagon	Sub #49	$25.00	na	
+#
+# Gift Subs
+# ---------------------------------------
+# 2026-06-11 23:12:48		lego1042	PurpleTentacle_	Sub	$5.00	na	
+# 2026-06-11 23:12:48		lego1042	nonstop_despair	Sub	$5.00	na	
+# 2026-06-11 23:12:48		lego1042	Desdanovas	Sub	$5.00	na	
+# 2026-06-11 23:12:48		lego1042	MikeyMet	Sub	$5.00	na	
+# 2026-06-11 23:12:54		LRowyn	MissBeccaroonie	Sub	$5.00	na	
+# 2026-06-11 23:12:54		LRowyn	tipen3wiparata	Sub	$5.00	na	
+# 2026-06-11 23:12:54		LRowyn	majorlobster	Sub	$5.00	na	
+# 2026-06-11 23:12:54		LRowyn	itmeJP	Sub	$5.00	na	
+#
+# Raffle
+# ---------------------------------------
+# 2026-06-11 23:00:35			Zerostalgia	Raffle	$0.00	na	
+# 2026-06-12 04:24:44			Slest	Raffle	$0.00	na
+#
+# Song requests
+# ---------------------------------------
+# SONG REQUEST FROM alinsa_vix: =HYPERLINK("https://www.youtube.com/watch?v=6gyzuy5cFWg", "Wild Arms 2nd Ignition (2nd Opening - JAP)")
+# SONG REQUEST FROM O_xD: =HYPERLINK("https://www.youtube.com/watch?v=1_cePGP6lbU", "Bon Iver - Woods")
+# SONG REQUEST FROM COREYTOWNZ: =HYPERLINK("https://youtu.be/E9EarKleINw?si=UZfr46hQltMmvs1k", "Stickerbush Symphony || Donkey Kong Bananza (Original Soundtrack)")
+# SONG REQUEST FROM valxa__: =HYPERLINK("https://www.youtube.com/watch?v=TQ8WlA2GXbk", "Official髭男dism - Pretender［Official Video］")
+# SONG REQUEST FROM combusterf: =HYPERLINK("6RUIeX6UCT8", "Don Henley - The Boys Of Summer")
+# SONG REQUEST FROM Zerostalgia: =HYPERLINK("https://www.youtube.com/watch?v=uvY8fdgezLQ", "Zara Larsson - Midnight Sun (Official Music Video)")
+# SONG REQUEST FROM WearsHats: =HYPERLINK("https://youtu.be/c8LNPeVPMIo", "KIRBY KRACKLE "Ring Capacity" (Green Lantern Song) Official Music Video")
+# SONG REQUEST FROM TurboAbsurdum: =HYPERLINK("https://www.youtube.com/watch?v=5AlklK5q0wQ", "MERRIL BAINBRIDGE | Mouth | Official Music Video | 1994")
+# SONG REQUEST FROM silent_song23: =HYPERLINK("https://www.youtube.com/watch?v=gut423ANiwo&list=RDgut423ANiwo&start_radio=1", "My Little Pony: The Movie - Official 'Rainbow' 🌈 Lyric Music Video by Sia")
+# SONG REQUEST FROM Ninjafish255: =HYPERLINK("https://www.youtube.com/watch?v=S9zoPeH-Ly0", "Mega Man 4 (NES) Music - Cossack Fortress 2")
+# SONG REQUEST FROM Slest: =HYPERLINK("v=RBaSiVjtKR4", "Body to Body")
+# SONG REQUEST FROM Slest: =HYPERLINK("v=Dt2P9jRa7w0", "they don't know 'bout us")
+# SONG REQUEST FROM ricketyrailway: =HYPERLINK("https://www.youtube.com/watch?v=eY-eyZuW_Uk", "DJ Shadow - Six Days")
+# SONG REQUEST FROM COREYTOWNZ: =HYPERLINK("https://youtu.be/X6QzbvH-ZNo?si=zT8wqW3piUkiEYJx", "The Addams Family Theme song")
+
+
 def receiveline(line):
     global row
     global rowqueue
@@ -97,6 +160,7 @@ def receiveline(line):
     hypelevel = re.compile(r'level=(\d*)')
     streamstart = re.compile("=== ONLINE")
     streamend = re.compile("=== OFFLINE")
+    songrequest = re.compile("SONG REQUEST FROM .*:")
 
 
     items = line.split("\t")
@@ -115,8 +179,6 @@ def receiveline(line):
         print(f'Hype: {hypelevel.group(1)}', flush=True)
         if hypelevel.group(1):
             level = int(hypelevel.group(1)) -1
-            # print(f'Rowqueue {len(rowqueue)-1} Items {len(rowqueue[len(rowqueue)-1])}')
-            # rowqueue[lastrow][7]= f'Completed Level {level}'
             # New way to record Hype Trains Directly
             items = line.split(" ")
             rowqueue.append([items[0]+" "+items[1],"","","Hype Train End","Hype","0.00","na", f'Completed Level {level}'])
@@ -235,27 +297,16 @@ def findnextrow():
         for r in range(0,len(rowqueue)):
             # Generate the order column, if STREAM START, then ordercount is an offset from r+1
             if rowqueue[r][3] == "STREAM START" or rowqueue[r][3] == "STREAM END":
-                ordercount=(-r-1)
-            rowqueue[r][1]= r+ordercount+1
+                ordercount = -r-1
+            else:
+                ordercount = 0
+            rowqueue[r][1]= str(r+ordercount+1)
             if rowqueue[r][5]:
                 dollarvalue = float(re.sub(r'\$','',rowqueue[r][5]))
                 if dollarvalue < 24.99:
                     lastrow = row + r
 
     print(f'Next blank row: {row} New rows to add: {len(rowqueue)}')
-
-    # Disable this part and use append rows instead
-    # Next Make sure there are enough new rows, if not, create more new lines
-    # newrowused += len(rowqueue)
-    # if newrowused > newrowcount:
-    #    newrowused-=newrowcount
-    #    try:
-    #        worksheet.add_rows(newrowcount+newrowused)
-    #        print(f'Added {newrowused+newrowcount} lines to sheet')
-    #        newrowused=0
-    #    except:
-    #        print("Tried to add lines to the sheet and that failed - new lines might not appear")
-    #        newrowused+=newrowcount  # Restore true status
 
     print(f'To Add:')
     for r in range(0,len(rowqueue)):
@@ -267,7 +318,6 @@ def main() -> int:
     global rowqueue
     global hypequeue
     global worksheet
-    global lastrow
 
     args = parse_args()
 
@@ -295,11 +345,6 @@ def main() -> int:
 
     row = int(state_path.read_text())
 
-    # Set input to non-blocking
-    rig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
-    fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
-
-
     print("Ready for data...", flush=True)
     # Ok take stdin and enter into bump log 
     failure_count=0
@@ -317,21 +362,6 @@ def main() -> int:
                     findnextrow()
                     if len(rowqueue)>0:
                         print("Updating google sheet...")
-# update(values: Iterable[Iterable[Any]], 
-#        range_name: str | None = None, 
-#        raw: bool = True, 
-#        major_dimension: Dimension | None = None, 
-#        value_input_option: ValueInputOption | None = None, 
-#        include_values_in_response: bool | None = None, 
-#        response_value_render_option: ValueRenderOption | None = None, 
-#        response_date_time_render_option: DateTimeOption | None = None)→ MutableMapping[str, Any]
-                        # worksheet.update(rowqueue,f'A{row}:H{row+len(rowqueue)-1}', raw=False)
-
-# append_rows(values: Sequence[Sequence[str | int | float]], 
-#             value_input_option: ValueInputOption = ValueInputOption.raw, 
-#             insert_data_option: InsertDataOption | None = None, 
-#             table_range: str | None = None, 
-#             include_values_in_response: bool | None = None)→ MutableMapping[str, Any]
                         worksheet.append_rows(rowqueue, table_range=f'A{row}',value_input_option='USER_ENTERED', insert_data_option='INSERT_ROWS')
                         print("Successfully updated", flush=True)
                         row += len(rowqueue)
@@ -372,4 +402,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     main()
-
