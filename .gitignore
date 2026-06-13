@@ -2,3 +2,6 @@ gsheets_credentials.json
 gsheet_test.id
 test_state.txt
 prod_state.txt
+bump.log
+bumptest.log
+__pycache__/ongautobump.cpython-314.pyc
