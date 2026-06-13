@@ -1,0 +1,10 @@
+[project]
+name = "ongautobump"
+version = "0.1.0"
+description = "Ong Bump Log Automation"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "gspread>=6.2.1",
+    "tdvutil>=0.0.10",
+]
