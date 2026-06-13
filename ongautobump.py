@@ -247,11 +247,13 @@ def receiveline(line):
         print(f'Stream Start: {items[0]}', flush=True)
         rowqueue.append([items[0],"","","STREAM START","","","",""])
         supportqueue=[]    # Erase the support queue
+        songqueue=[]    # Erase the song queue
     elif streamend.search(line):
         items = line.split(" === ")
         print(f'Stream End: {items[0]}', flush=True)
         rowqueue.append([items[0],"","","STREAM END","","","",""])
         supportqueue=[]    # Erase the support queue
+        songqueue=[]    # Erase the song queue
     elif songrequest.search(line):
         songdetail = songrequest.search(line)
         requester = songdetail.group(1)
