@@ -162,15 +162,16 @@ def parse_args() -> argparse.Namespace:
 def remove_inside_quotes(input_string):
     # 1. Find the first occurrence of "(url," to isolate the parts
     # This ensures we split at the correct comma even if the title has commas.
-    if "(" not in input_string and "," in input_string:
+    if '(' not in input_string and ',' in input_string:
+        print(f'Unexpected input: {input_string} - Skipping. Expected format: =HYPERLINK("url", "title")')
         return input_string # Return original if format is unexpected
     else:
-        new_string = input_string.replace('","','\n')
-        # We look for the comma that follows the URL part
-        # The structure is: =HYPERLINK("url", "title")
-        parts = new_string.split(',')
+        new_string = input_string.replace('","','\n').replace('", "','\n').replace('" ,"','\n')
+        # new string should have two lines now
+        parts = new_string.split('\n')
 
     if len(parts) < 2:
+        print(f'Unexpected input: {input_string} - {len(parts)} {parts}')
         return input_string # Return original if format is unexpected
 
     # part[0] will be something like: =HYPERLINK("https://youtu.be/c8LNPeVPMIo"
@@ -178,8 +179,19 @@ def remove_inside_quotes(input_string):
     
     url_part = parts[0].replace('"','').replace('HYPERLINK(','HYPERLINK("') + '"'
 
-    # Fix wierd youtube links
-    url_part= url_part.replace('HYPERLINK("v=','HYPERLINK("https://youtu.be/')
+    # Fix just the video if its not the full link
+    # Check if we have a simple YouTube ID (no https in URL part)
+    # print(f'url part: {url_part}')
+    if not '=HYPERLINK("https://' in url_part:
+        # Extract the video ID from the URL part
+        # The url_part should be something like: HYPERLINK("o5gIvu8sATQ"
+        # We need to extract just the video ID part and make it a full URL
+        match = re.search(r'\=HYPERLINK\("([^"]+)"', url_part)
+        if match:
+            video_id = match.group(1)
+            # If it's not already a full URL, convert simple ID to full URL
+            if not video_id.startswith('http'):
+                url_part = f'=HYPERLINK("https://youtu.be/{video_id}")'
 
     title_part = '"' + parts[1].replace('"','').replace('(','').replace(')','') + '")'
 
@@ -235,16 +247,18 @@ def receiveline(line):
         print(f'Stream Start: {items[0]}', flush=True)
         rowqueue.append([items[0],"","","STREAM START","","","",""])
         supportqueue=[]    # Erase the support queue
+        songqueue=[]    # Erase the song queue
     elif streamend.search(line):
         items = line.split(" === ")
         print(f'Stream End: {items[0]}', flush=True)
         rowqueue.append([items[0],"","","STREAM END","","","",""])
         supportqueue=[]    # Erase the support queue
+        songqueue=[]    # Erase the song queue
     elif songrequest.search(line):
         songdetail = songrequest.search(line)
-        print(f'Song Request from {songdetail.group(1)}', flush=True)
         requester = songdetail.group(1)
         song = remove_inside_quotes(songdetail.group(2))
+        print(f'Song Request from {requester}: {song}', flush=True)
         
         # Search through supportqueue for a matching member
         detailupdate = []  # Array to hold updates for non-existing entries
@@ -437,38 +451,41 @@ def main() -> int:
         state_path.write_text(str(row))
 
     row = int(state_path.read_text())
-
-    print("Valdiating row...",flush=True)
-    findnextrow()
-
+    
     print("Ready for data...", flush=True)
     # Ok take stdin and enter into bump log 
     failure_count=0
     
     while True:
         try:
+            # Check for up to a second for more data
             if select.select([sys.stdin],[],[],1.0)[0]:
-                line = sys.stdin.readline()
-                while len(line)>0:
-                    # print(f'Line: {line}')
+                while True:
+                    line = sys.stdin.readline()
+                    if not line:
+                        break
+                    print(f'Line: {line}')
                         
                     receiveline(line)
-                    # Handle updating details from song requests provided
-                    while len(detailupdate)>0:
-                        row_num, requester, song = detailupdate.pop()
-                        try:
-                            print(f'Updating {song} at row {row_num}')
-                            supportSheet.update_cell(row_num, 8, song)
-                        except Exception as e:
-                            exc_type, exc_obj, exc_tb = sys.exc_info()
-                            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                            print(exc_type, fname, exc_tb.tb_lineno)
-                            print(traceback.format_exc())
-                            print("--= Some failure occured trying to add information. Adding back to songqueue =--", flush=True)
-                            songqueue.append([requester, song, False])
-                    line = ""
-                    if select.select([sys.stdin],[],[],0.1)[0]:
-                        line = sys.stdin.readline()
+                    
+                    # Quick check for more data without long timeout
+                    if not select.select([sys.stdin], [], [], 0.01)[0]:
+                        # Handle updating details from song requests provided
+                        while len(detailupdate)>0:
+                            row_num, requester, song = detailupdate.pop()
+                            try:
+                                print(f'Updating {song} at row {row_num}')
+                                supportSheet.update_cell(row_num, 8, song)
+                            except Exception as e:
+                                exc_type, exc_obj, exc_tb = sys.exc_info()
+                                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                                print(exc_type, fname, exc_tb.tb_lineno)
+                                print(traceback.format_exc())
+                                print("--= Some failure occured trying to add information. Adding back to songqueue =--", flush=True)
+                                songqueue.append([requester, song, False])
+                        # Since there is no detail, drop out of loop
+                        break 
+
             if len(rowqueue)>0:
                 print("Processing queue...", flush=True)
                 try:
@@ -479,17 +496,6 @@ def main() -> int:
                     row += len(rowqueue)
                     state_path.write_text(str(row))
                     failure_count=0
-                    if len(songqueue)>0:
-                        for j, (requester, song, shownflag)  in enumerate(songqueue):
-                            if not shownflag:
-                                try:
-                                    supportSheet.update_cell(row+j, 8, song.replace('")',' QUEUED BY '+requester+'")'))
-                                    songqueue[j]=[requester, song, True]
-                                except Exception as e:
-                                    print (f"Error clearing cell: {e} to remove song queue list")
-                                    time.sleep(30)
-                                    break
-
                     rowqueue = []
                 except Exception as e:
                     exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -508,6 +514,19 @@ def main() -> int:
                     if failure_count > 4:
                         print("API Seems to not be working anymore -- exiting")
                         break
+            # If there are songs that haven't been showed at the bottom of the list
+            if len(songqueue)>0:
+                for j, (requester, song, shownflag)  in enumerate(songqueue):
+                    if not shownflag:
+                        try:
+                            supportSheet.update_cell(row+j, 8, song.replace('")',' QUEUED BY '+requester+'")'))
+                            songqueue[j]=[requester, song, True]
+                        except Exception as e:
+                            print (f"Error clearing cell: {e} to remove song queue list")
+                            time.sleep(30)
+                            break
+
+            # This really isn't a thing any more -- waiting for better hype logging from ongwatch
             if len(hypequeue)>0:
                 for hype in hypequeue:                        
                     try:
@@ -516,6 +535,9 @@ def main() -> int:
                     except:
                         print(f'Failed to update H{hype[1]} for Hypetrain {hype[0]}', flush=True)
                 hypequeue = []
+
+            # Print a dot every second to keep the user entertained while we wait for data
+            # print('.',end='',flush=True)
 
         except StopIteration:
             print('EOF! Terminating')
