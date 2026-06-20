@@ -459,32 +459,27 @@ def main() -> int:
     while True:
         try:
             # Check for up to a second for more data
-            if select.select([sys.stdin],[],[],1.0)[0]:
-                while True:
-                    line = sys.stdin.readline()
-                    if not line:
-                        break
-                    print(f'Line: {line}')
-                        
-                    receiveline(line)
-                    
-                    # Quick check for more data without long timeout
-                    if not select.select([sys.stdin], [], [], 0.01)[0]:
-                        # Handle updating details from song requests provided
-                        while len(detailupdate)>0:
-                            row_num, requester, song = detailupdate.pop()
-                            try:
-                                print(f'Updating {song} at row {row_num}')
-                                supportSheet.update_cell(row_num, 8, song)
-                            except Exception as e:
-                                exc_type, exc_obj, exc_tb = sys.exc_info()
-                                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-                                print(exc_type, fname, exc_tb.tb_lineno)
-                                print(traceback.format_exc())
-                                print("--= Some failure occured trying to add information. Adding back to songqueue =--", flush=True)
-                                songqueue.append([requester, song, False])
-                        # Since there is no detail, drop out of loop
-                        break 
+            while select.select([sys.stdin],[],[],1.0)[0]:
+                print('Reading Line: ', end='', flush=True)
+                line = sys.stdin.readline()
+                if not line:
+                    break
+                print(f'{line}', flush=True)                    
+                receiveline(line)
+
+            # Handle updating details from song requests provided
+            while len(detailupdate)>0:
+                row_num, requester, song = detailupdate.pop()
+                try:
+                    print(f'Updating {song} at row {row_num}')
+                    supportSheet.update_cell(row_num, 8, song)
+                except Exception as e:
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                    print(exc_type, fname, exc_tb.tb_lineno)
+                    print(traceback.format_exc())
+                    print("--= Some failure occured trying to add information. Adding back to songqueue =--", flush=True)
+                    songqueue.append([requester, song, False])
 
             if len(rowqueue)>0:
                 print("Processing queue...", flush=True)
